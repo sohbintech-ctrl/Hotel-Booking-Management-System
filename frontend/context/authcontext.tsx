@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState,useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { login as loginApi } from "@/api/auth";
 import { register as registerApi } from "@/api/auth";
 import { logout as logoutApi } from "@/api/auth";
@@ -17,10 +17,15 @@ type User = {
   role?: "user" | "admin";
 };
 
+type LoginResponse = {
+  success: boolean;
+  message: string;
+  data: User;
+};
 
 const AuthContext = createContext<{
   user: User | null;
-  login: (data: { email: string; password: string }) => Promise<User | void>;
+  login: (data: { email: string; password: string }) => Promise<LoginResponse>;
   register: (data: SignUpPayload) => Promise<void>;
   getCurrentUser: () => Promise<User | void>;
   updateUser: (data: {
@@ -31,7 +36,9 @@ const AuthContext = createContext<{
   logout: () => Promise<void>;
 }>({
   user: null,
-  login: async () => {},
+  login: async () => {
+    throw new Error("login not implemented");
+  },
   register: async () => {},
   getCurrentUser: async () => {},
   logout: async () => {},
@@ -44,55 +51,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   const login = async (data: { email: string; password: string }) => {
-     await loginApi(data);
+    const result = await loginApi(data);
 
-     const currentUser=await getCurrentUser();
-     return currentUser;
-    
+    const currentUser = await getCurrentUser();
+
+    return {
+      ...result,
+      data: currentUser,
+    };
   };
 
-  const register=async(data:SignUpPayload)=>{
+  const register = async (data: SignUpPayload) => {
     await registerApi(data);
     await getCurrentUser();
-  }
+  };
 
   const getCurrentUser = async () => {
-  try {
-    const result = await getMeApi();
+    try {
+      const result = await getMeApi();
+
+      setUser(result.data);
+      return result.data;
+    } catch (error) {
+      setUser(null);
+      return null;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const result = await logoutApi();
+      setUser(null);
+      toast.success(result.message, {
+        duration: 1000,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Logout failed");
+    }
+  };
+
+  const updateUser = async (data: {
+    name: string;
+    number: string;
+    email: string;
+  }) => {
+    const result = await updateUserApi(data);
 
     setUser(result.data);
-     return result.data;
-  } catch (error) {
-    setUser(null);
-    return null;
-  }
-};
 
-const logout = async () => {
-  try {
-    await logoutApi();
-    setUser(null);
-    toast.success("Logout successful");
-  } catch (error) {
-    toast.error(
-      error instanceof Error ? error.message : "Logout failed"
-    );
-  }
-};
-
-const updateUser = async (data: { name: string; number: string; email:string}) => {
-  const result = await updateUserApi(data);
-
-  setUser(result.data);
-
-  return result.data;
-};
-useEffect(() => {
-  getCurrentUser();
-}, []);
+    return result.data;
+  };
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, register, getCurrentUser,logout,updateUser,}}>
+    <AuthContext.Provider
+      value={{ user, login, register, getCurrentUser, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

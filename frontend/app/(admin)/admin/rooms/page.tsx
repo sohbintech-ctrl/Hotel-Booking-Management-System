@@ -1,5 +1,6 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
+import { createRoom, deleteRoom, getRooms, updateRoom } from "@/api/room";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,17 +32,19 @@ import {
 import { Plus, Pencil, Trash2, Search, BedDouble } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadImage } from "@/api/cloudinary";
 
 export default function AdminRoomsPage() {
   const [roomName, setRoomName] = useState("");
   const [roomType, setRoomType] = useState("");
+  const [images, setImages] = useState<File[]>([]);
   const [branch, setBranch] = useState("");
   const [price, setPrice] = useState("");
   const [capacity, setCapacity] = useState("");
   const [description, setDescription] = useState("");
   const [rooms, setRooms] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
-  const[search,setSearch]=useState("");
+  const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const resetForm = () => {
@@ -52,45 +55,77 @@ export default function AdminRoomsPage() {
     setCapacity("");
     setDescription("");
     setEditing(null);
+    setImages([]);
   };
 
-  const filteredRooms=rooms.filter((room:any)=>{
-   const matchRooms=room.roomName.toLowerCase().includes(search.toLowerCase());
-   return matchRooms;
-  })
+  const filteredRooms = rooms.filter((room: any) => {
+    const matchRooms = room.roomName
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    return matchRooms;
+  });
 
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const value: any = {
-      id: editing ? editing.id : Date.now(),
-      roomName,
-      roomType,
-      branch,
-      price,
-      capacity,
-      description,
-    };
+ const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+   e.preventDefault();
 
-    if (editing) {
-      setRooms((prev: any) =>
-        prev.map((room: any) => (room.id === editing.id ? value : room)),
-      );
-    } else {
-      setRooms((prev: any) => [...prev, value]);
-    }
+   try {
+       let roomImages = editing?.images || [];
 
-    resetForm();
-    setDialogOpen(false);
-  };
+       //selecting and uploading images
+       if (images.length > 0) {
+         roomImages = [];
 
-  const handleDelete = (id: any) => {
-    const filtered = rooms.filter((room: any) => room.id !== id);
-    setRooms(filtered);
-  };
+         for (const image of images) {
+           const result = await uploadImage(image);
+
+           roomImages.push({
+             url: result.secure_url,
+             publicId: result.public_id,
+           });
+         }
+       }
+
+     const roomData = {
+       roomName,
+       roomType,
+       branch,
+       price: Number(price),
+       capacity: Number(capacity),
+       description,
+       images: roomImages,
+     };
+
+     if (editing) {
+       // UPDATE
+       await updateRoom(editing._id, roomData);
+     } else {
+       // CREATE
+       await createRoom(roomData);
+     }
+
+     // Get latest data from database
+     await fetchRooms();
+
+     resetForm();
+     setDialogOpen(false);
+   } catch (error) {
+     console.error(error);
+   }
+ };
+
+const handleDelete = async (id: string) => {
+  try {
+    await deleteRoom(id);
+
+    await fetchRooms();
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   const handleEdit = (id: any) => {
-    const editRoom = rooms.find((room: any) => room.id === id);
+    const editRoom = rooms.find((room: any) => room._id === id);
     if (!editRoom) return;
 
     setEditing(editRoom);
@@ -102,6 +137,19 @@ export default function AdminRoomsPage() {
     setDescription(editRoom.description);
     setDialogOpen(true);
   };
+
+  const fetchRooms = async () => {
+    try {
+      const result = await getRooms();
+      setRooms(result.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10">
@@ -140,6 +188,17 @@ export default function AdminRoomsPage() {
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-1.5">
+                <Label htmlFor="image">Room Image</Label>
+
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []).slice(0, 3);
+                    setImages(files);
+                  }}
+                />
                 <Label htmlFor="roomName">Room Name</Label>
                 <Input
                   id="roomName"
@@ -238,7 +297,12 @@ export default function AdminRoomsPage() {
       {/* Search */}
       <div className="relative mb-6 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search rooms..." className="pl-9" value={search} onChange={(e)=>setSearch(e.target.value)} />
+        <Input
+          placeholder="Search rooms..."
+          className="pl-9"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Table */}
@@ -250,6 +314,7 @@ export default function AdminRoomsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Image</TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Branch</TableHead>
@@ -261,7 +326,18 @@ export default function AdminRoomsPage() {
             </TableHeader>
             <TableBody>
               {filteredRooms.map((room: any) => (
-                <TableRow key={room.id}>
+                <TableRow key={room._id}>
+                  <TableCell>
+                    {room.images?.[0]?.url ? (
+                      <img
+                        src={room.images[0].url}
+                        alt={room.roomName}
+                        className="h-12 w-16 rounded object-cover"
+                      />
+                    ) : (
+                      <BedDouble className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <BedDouble className="h-4 w-4 text-muted-foreground" />
@@ -285,7 +361,7 @@ export default function AdminRoomsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleEdit(room.id)}
+                        onClick={() => handleEdit(room._id)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -293,7 +369,7 @@ export default function AdminRoomsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(room.id)}
+                        onClick={() => handleDelete(room._id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>

@@ -1,10 +1,13 @@
-import RoomCard from "@/app/(main)/components/RoomCard";
+
+"use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Wifi, Coffee, Waves, ParkingCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { dummyRooms } from "@/lib/rooms";
+import { useRooms } from "../hooks/useRoom";
+import RoomGrid from "./components/RoomGrid";
 
 // Dummy data — pachi database bata fetch garne (tapaiko logic)
 
@@ -31,6 +34,7 @@ const features = [
 ];
 
 export default function Home() {
+    const { rooms, loading } = useRooms();
   return (
     <main>
       {/* Hero Section */}
@@ -70,12 +74,7 @@ export default function Home() {
         <p className="text-muted-foreground mb-8">
           Browse and book an available room below.
         </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dummyRooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </div>
+       <RoomGrid rooms={rooms}/>
       </section>
 
       {/* Special Offers Banner */}

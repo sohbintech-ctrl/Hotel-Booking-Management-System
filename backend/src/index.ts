@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import { connectDatabase } from "./modules/config/db.ts";
 import userRoutes from "./modules/user/routes.js";
 import authRoutes from "./modules/auth/routes.ts";
+import roomRoutes from "./modules/room/routes.ts";
+import bookingRoutes from "./modules/booking/routes.js";
 import cookieParser from "cookie-parser";
 
 dotenv.config();
@@ -21,6 +23,8 @@ app.use(cookieParser());
 
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 const PORT = process.env.PORT || 5001;
 

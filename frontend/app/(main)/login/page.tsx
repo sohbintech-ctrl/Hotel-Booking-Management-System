@@ -45,9 +45,9 @@ export default function LoginPage() {
     const loginData=result.data;
  
    try {
-   await login(loginData);
+   const result=await login(loginData);
 
-     toast.success("Login successfully", {
+     toast.success(result.message, {
        duration: 1000,
      });
    }catch (error) {

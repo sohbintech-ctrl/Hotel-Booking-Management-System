@@ -1,3 +1,4 @@
+"use client";
 import {
   Select,
   SelectContent,
@@ -9,10 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { dummyRooms } from "@/lib/rooms";
 import RoomCard from "../components/RoomCard";
+import { useEffect, useState } from "react";
+import { getRooms } from "@/api/room";
+import RoomGrid from "../components/RoomGrid";
+import { useRooms } from "@/app/hooks/useRoom";
 
 // Dummy data — pachi database bata fetch garne (tapaiko logic)
 
 export default function RoomsPage() {
+  const { rooms, loading } = useRooms();
+
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
       <div className="mb-10 text-center">
@@ -55,11 +62,7 @@ export default function RoomsPage() {
       </div>
 
       {/* Rooms Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {dummyRooms.map((room) => (
-          <RoomCard key={room.id} room={room} />
-        ))}
-      </div>
+     <RoomGrid rooms={rooms} />
     </main>
   );
 }
